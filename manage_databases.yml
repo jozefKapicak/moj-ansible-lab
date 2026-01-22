@@ -6,25 +6,35 @@
     - databases.yml
 
   tasks:
-    # --- 1. SPRACOVANIE db_list (present/absent) ---
-    - name: "Správa databáz podľa stavu (db_list)"
+    # --- 1. SEKCIA: MARIADB GALERA (REPLIKUJE SAMA) ---
+    - name: "Správa MariaDB Galera klastra"
       community.mysql.mysql_db:
         name: "{{ item.name }}"
         state: "{{ item.state }}"
         login_user: root
         login_password: root
-        login_host: "localhost"
       loop: "{{ db_list }}"
-      # Pri Galere stačí na jednom node, pri MySQL (bez klastra) na všetkých
-      run_once: "{{ 'mariadb_galera' in group_names }}"
+      when: "'mariadb_galera' in group_names"
+      run_once: true  # Tu stačí 1x, lebo Galera funguje
 
-    # --- 2. SPRACOVANIE databases_to_create (len present) ---
-    - name: "Hromadné vytvorenie nových databáz"
+    # --- 2. SEKCIA: MYSQL STANDALONE (MUSÍ ÍSŤ NA KAŽDÝ UZOL) ---
+    - name: "Správa MySQL uzlov (individuálne)"
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: "{{ item.state }}"
+        login_user: root
+        login_password: root
+      loop: "{{ db_list }}"
+      when: "'mysql_innodb' in group_names"
+      # TU NESMIE BYŤ run_once! Musí to prebehnúť na mysql1, mysql2 aj mysql3.
+
+    # --- 3. PRIDANIE NOVÝCH DB Z DRUHÉHO ZOZNAMU ---
+    - name: "Hromadné vytvorenie databases_to_create"
       community.mysql.mysql_db:
         name: "{{ item }}"
         state: present
         login_user: root
         login_password: root
-        login_host: "localhost"
       loop: "{{ databases_to_create }}"
+      # Ak je to MySQL, pustí to na všetkých 3 IP adresách (172.17.0.2, .3, .4)
       run_once: "{{ 'mariadb_galera' in group_names }}"
