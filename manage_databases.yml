@@ -1,0 +1,16 @@
+---
+- name: "Správa databáz na Multi-Cluster prostredí"
+  hosts: mariadb_galera, mysql_innodb
+  become: yes
+  tasks:
+    # LOGIKA PRE MARIADB (Galera)
+    - name: "Vytvorenie DB na MariaDB Galera"
+      shell: "mariadb -u root -e 'CREATE DATABASE IF NOT EXISTS {{ db_name_from_survey }};'"
+      when: "'mariadb_galera' in group_names"
+      run_once: true  # Stačí spustiť na jednom node, Galera to replikuje
+
+    # LOGIKA PRE MYSQL (InnoDB Cluster)
+    - name: "Vytvorenie DB na MySQL InnoDB"
+      shell: "mysql -u root -e 'CREATE DATABASE IF NOT EXISTS {{ db_name_from_survey }};'"
+      when: "'mysql_innodb' in group_names"
+      run_once: true  # Replikácia sa postará o zvyšok
