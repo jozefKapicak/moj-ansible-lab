@@ -6,3 +6,9 @@ db_list:
     state: "absent"
   - name: "nova_produkcia"
     state: "present"
+
+# Zoznam databáz, ktoré sa majú vytvoriť
+databases_to_create:
+  - "jozefffff_gitops_1"
+  - "sortia_produkcia"
+  - "test_z_yamlu"
