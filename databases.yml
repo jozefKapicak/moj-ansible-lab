@@ -1,29 +1,13 @@
 ---
-- name: "GitOps Master Playbook pre oba klastre"
-  hosts: all      # Musí tu byť all, aby to zobralo aj mariadb aj mysql!
-  become: yes
-  vars_files:
-    - databases.yml
+db_list:
+  - name: "Testik1"
+    state: "present"
+  - name: "stara_databaza"
+    state: "absent"
+  - name: "nova_produkcia"
+    state: "present"
 
-  tasks:
-    # --- LOGIKA PRE MARIADB (Galera - stačí 1x na klaster) ---
-    - name: "MariaDB: Správa databáz"
-      community.mysql.mysql_db:
-        name: "{{ item.name }}"
-        state: "{{ item.state }}"
-        login_user: root
-        login_password: root
-      loop: "{{ db_list }}"
-      when: "'mariadb_galera' in group_names"
-      run_once: true
-
-    # --- LOGIKA PRE MYSQL (Standalone - MUSÍ ÍSŤ NA KAŽDÝ UZOL) ---
-    - name: "MySQL: Správa databáz na každom uzle"
-      community.mysql.mysql_db:
-        name: "{{ item.name }}"
-        state: "{{ item.state }}"
-        login_user: root
-        login_password: root
-      loop: "{{ db_list }}"
-      when: "'mysql_innodb' in group_names"
-      # TU NIE JE run_once, takže to Ansible urobí na .2, .3 aj .4
+databases_to_create:
+  - "jozefffff_gitops_1"
+  - "sortia_produkcia"
+  - "test_z_yamlu"
