@@ -47,8 +47,16 @@
         state: started
       when: inventory_hostname != "node1"
 
-    - name: "9. Vytvorenie databázy (priamy SQL príkaz)"
+    - name: "9. GitOps správa databáz"
+      include_vars:
+        file: databases.yml
+
+    - name: "10. Vykonanie zmien (Vytvorenie/Mazanie)"
       shell: |
-        mariadb -u root -e "CREATE DATABASE IF NOT EXISTS {{ item }};"
-      loop: "{{ [db_name_from_survey] | select('defined') | select('ne', '') | list }}"
+        if [ "{{ item.state }}" == "present" ]; then
+          mariadb -u root -e "CREATE DATABASE IF NOT EXISTS {{ item.name }};"
+        elif [ "{{ item.state }}" == "absent" ]; then
+          mariadb -u root -e "DROP DATABASE IF EXISTS {{ item.name }};"
+        fi
+      loop: "{{ db_list }}"
       when: inventory_hostname == "node1"
