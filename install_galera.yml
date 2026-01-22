@@ -1,11 +1,11 @@
 ---
-- name: "Inštalácia MariaDB Galera Cluster"
+- name: "Inštalácia MariaDB Galera Cluster a správa databáz"
   hosts: all
   become: yes
   tasks:
-    - name: "1. Inštalácia MariaDB a Galera balíkov"
+    - name: "1. Inštalácia MariaDB, Galera a Python knižníc"
       apt:
-        name: [mariadb-server, mariadb-client, galera-4, rsync]
+        name: [mariadb-server, mariadb-client, galera-4, rsync, python3-pymysql]
         state: present
         update_cache: yes
 
@@ -46,3 +46,12 @@
         name: mariadb
         state: started
       when: inventory_hostname != "node1"
+
+    - name: "9. Vytvorenie databázy z AWX Survey"
+      mysql_db:
+        name: "{{ db_name_from_survey }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      when: 
+        - inventory_hostname == "node1"
+        - db_name_from_survey is defined and db_name_from_survey | length > 0
