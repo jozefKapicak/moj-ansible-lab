@@ -48,7 +48,7 @@
       when: inventory_hostname != "node1"
 
     - name: "9. Vytvorenie databázy z AWX Survey"
-      mysql_db:
+      community.mysql.mysql_db:  # <--- Tu je zmena
         name: "{{ db_name_from_survey }}"
         state: present
         login_unix_socket: /run/mysqld/mysqld.sock
