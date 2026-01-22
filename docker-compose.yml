@@ -1,4 +1,4 @@
-# docker-compose.yml  (KLASTER 2: MySQL InnoDB Cluster na 172.17)
+# docker-compose.yml  --- KLASTER 2: MySQL InnoDB Cluster (172.17)
 version: "3.9"
 
 services:
@@ -13,6 +13,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: "%"
     command:
+      - --bind-address=0.0.0.0
       - --server-id=1
       - --report-host=mysql1
       - --report-port=3306
@@ -36,10 +37,12 @@ services:
       - --loose-group_replication_local_address=mysql1:33061
       - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
       - --loose-group_replication_ip_allowlist=172.17.0.0/16
+      - --loose-group_replication_exit_state_action=READ_ONLY
+      - --loose-group_replication_consistency=EVENTUAL
     volumes:
       - mysql1_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "mysql -uroot -proot -h 127.0.0.1 -e 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 60
@@ -56,6 +59,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: "%"
     command:
+      - --bind-address=0.0.0.0
       - --server-id=2
       - --report-host=mysql2
       - --report-port=3306
@@ -79,10 +83,12 @@ services:
       - --loose-group_replication_local_address=mysql2:33061
       - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
       - --loose-group_replication_ip_allowlist=172.17.0.0/16
+      - --loose-group_replication_exit_state_action=READ_ONLY
+      - --loose-group_replication_consistency=EVENTUAL
     volumes:
       - mysql2_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "mysql -uroot -proot -h 127.0.0.1 -e 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 60
@@ -99,6 +105,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: "%"
     command:
+      - --bind-address=0.0.0.0
       - --server-id=3
       - --report-host=mysql3
       - --report-port=3306
@@ -122,16 +129,18 @@ services:
       - --loose-group_replication_local_address=mysql3:33061
       - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
       - --loose-group_replication_ip_allowlist=172.17.0.0/16
+      - --loose-group_replication_exit_state_action=READ_ONLY
+      - --loose-group_replication_consistency=EVENTUAL
     volumes:
       - mysql3_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "mysql -uroot -proot -h 127.0.0.1 -e 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 60
     restart: unless-stopped
 
-  # Inicializácia InnoDB Clusteru: seed je mysql3 (lebo máš dáta na mysql3)
+  # Bootstrap InnoDB Cluster: seed je mysql3 (lebo tam máš dáta)
   mysqlsh-init:
     image: mysql/mysql-shell:8.0
     container_name: mysqlsh-init
@@ -149,17 +158,18 @@ services:
     command: |
       set -euo pipefail
 
-      echo "==> Waiting for MySQL instances to accept connections..."
+      echo "==> Waiting for instances..."
       for h in mysql1 mysql2 mysql3; do
         until mysqlsh --no-wizard --sql -uroot -proot -h "$h" -e "SELECT 1" >/dev/null 2>&1; do
           sleep 1
         done
       done
 
-      echo "==> Bootstrapping InnoDB Cluster (seed=mysql3) + ensure DB jozefffff_5..."
+      echo "==> Bootstrapping InnoDB Cluster (seed=mysql3) and ensuring jozefffff_8..."
       mysqlsh --no-wizard --js -uroot -proot -h mysql3 --execute "
         shell.connect('root:root@mysql3:3306');
 
+        // create or get cluster
         var cluster;
         try {
           cluster = dba.getCluster('innodbCluster');
@@ -169,13 +179,20 @@ services:
           print('Cluster created.');
         }
 
-        // Add members (idempotent-ish: try, ignore if already added)
+        // add instances (clone = mysql1/mysql2 budú mať rovnaké DB ako mysql3)
         try { cluster.addInstance('root:root@mysql1:3306', { recoveryMethod: 'clone' }); } catch (e) { print('add mysql1: ' + e.message); }
         try { cluster.addInstance('root:root@mysql2:3306', { recoveryMethod: 'clone' }); } catch (e) { print('add mysql2: ' + e.message); }
 
-        // Create DB on primary/seed -> should replicate via Group Replication
-        session.runSql('CREATE DATABASE IF NOT EXISTS jozefffff_5');
-        print('DB ensured: jozefffff_5');
+        // enforce mysql3 as primary (aby tvoje docker exec na mysql3 bolo write-safe)
+        try { cluster.setPrimaryInstance('mysql3:3306'); } catch (e) { print('setPrimary: ' + e.message); }
+
+        // ensure DB (bude replikované cez Group Replication)
+        session.runSql('CREATE DATABASE IF NOT EXISTS jozefffff_8');
+        print('DB ensured: jozefffff_8');
+
+        // show members
+        var rs = session.runSql(\"SELECT MEMBER_HOST, MEMBER_STATE, MEMBER_ROLE FROM performance_schema.replication_group_members\");
+        print(rs.fetchAll());
       "
 
       echo "==> DONE."
