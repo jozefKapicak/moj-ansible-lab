@@ -19,12 +19,18 @@
         name: mariadb
         state: stopped
 
-    - name: Inicializácia Clusteru na prvom node (node1)
-      command: mariadb-admin --socket=/run/mysqld/mysqld.sock shutdown || true
+    - name: Uistenie sa, že žiadna MariaDB nebeží (čistenie)
+      command: pkill -u mysql mariadbd
+      ignore_errors: yes
       when: inventory_hostname == "node1"
 
     - name: Štart nového clusteru na node1
       command: galera_new_cluster
+      when: inventory_hostname == "node1"
+
+    - name: Počkať na štart node1
+      pause:
+        seconds: 10
       when: inventory_hostname == "node1"
 
     - name: Pripojenie ostatných nodov (node2, node3)
