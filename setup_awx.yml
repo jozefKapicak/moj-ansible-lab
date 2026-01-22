@@ -1,0 +1,21 @@
+---
+- name: "Setup AWX Job Template"
+  hosts: localhost
+  tasks:
+    - name: "Vytvorenie šablóny pre Multi-Cluster"
+      awx.awx.job_template:
+        name: "Deploy SQL Databases"
+        project: "sortia-infra-ops"
+        playbook: "manage_databases.yml"
+        inventory: "Homelab Inventory"
+        job_type: "run"
+        # TOTO ZABEZPEČÍ, ŽE PREMENNÉ NEBUDÚ PRÁZDNE {}
+        ask_extra_vars: true
+        survey_enabled: true
+        survey_spec:
+          spec:
+            - question_name: "Názov novej databázy"
+              variable: "db_name_from_survey"
+              type: "text"
+              required: true
+        state: present
