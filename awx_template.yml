@@ -1,0 +1,14 @@
+---
+- name: "Konfigurácia AWX Šablóny"
+  hosts: localhost
+  tasks:
+    - name: "Vytvor Job Template bez Survey"
+      awx.awx.job_template:
+        name: "GitOps DB Deploy"
+        project: "sortia-infra-ops"
+        playbook: "manage_databases.yml"
+        inventory: "Homelab Inventory"
+        # --- ŽIADNE SURVEY, ŽIADNE PROMPTY ---
+        survey_enabled: false                # Vypne Survey
+        ask_extra_vars: false                # Vypne Prompt pre Variables
+        state: present
