@@ -3,11 +3,16 @@ all:
   children:
     mariadb_galera:
       hosts:
-        node1: { ansible_host: 192.168.1.201 }
-        node2: { ansible_host: 192.168.1.202 }
-        node3: { ansible_host: 192.168.1.203 }
+        node1: { ansible_host: 172.18.0.3 }
+        node2: { ansible_host: 172.18.0.X } # Tu daj IP, čo ti vypľul inspect pre node2
+        node3: { ansible_host: 172.18.0.4 }
     mysql_innodb:
       hosts:
-        mysql1: { ansible_host: 192.168.1.40 }
-        mysql2: { ansible_host: 192.168.1.41 }
-        mysql3: { ansible_host: 192.168.1.42 }
+        mysql1: { ansible_host: 172.18.0.X } # Tu daj IP pre mysql1
+        mysql2: { ansible_host: 172.18.0.X } # Tu daj IP pre mysql2
+        mysql3: { ansible_host: 172.18.0.X } # Tu daj IP pre mysql3
+
+  vars:
+    ansible_user: root
+    ansible_ssh_pass: root
+    ansible_port: 22
