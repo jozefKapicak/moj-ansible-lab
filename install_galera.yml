@@ -1,0 +1,34 @@
+---
+- name: Inštalácia MariaDB Galera Cluster
+  hosts: all
+  become: yes
+  tasks:
+    - name: Inštalácia MariaDB a Galera balíkov
+      apt:
+        name: [mariadb-server, mariadb-client, galera-4, rsync]
+        state: present
+        update_cache: yes
+
+    - name: Kopírovanie Galera konfigurácie
+      template:
+        src: galera.cnf.j2
+        dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
+
+    - name: Zastavenie MariaDB na všetkých nodoch
+      service:
+        name: mariadb
+        state: stopped
+
+    - name: Inicializácia Clusteru na prvom node (node1)
+      command: mariadb-admin --socket=/run/mysqld/mysqld.sock shutdown || true
+      when: inventory_hostname == "node1"
+
+    - name: Štart nového clusteru na node1
+      command: galera_new_cluster
+      when: inventory_hostname == "node1"
+
+    - name: Pripojenie ostatných nodov (node2, node3)
+      service:
+        name: mariadb
+        state: started
+      when: inventory_hostname != "node1"
