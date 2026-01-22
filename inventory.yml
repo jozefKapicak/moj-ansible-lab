@@ -13,5 +13,5 @@ all:
         mysql3: { ansible_host: 172.17.0.4 }
   vars:
     ansible_user: root
-    ansible_ssh_pass: root   # Použi svoje heslo, ak je iné
+    ansible_ssh_pass: root
     ansible_port: 22
