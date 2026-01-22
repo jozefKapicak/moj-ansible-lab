@@ -3,37 +3,45 @@
   hosts: all
   become: yes
   tasks:
-    - name: Inštalácia MariaDB a Galera balíkov
+    - name: 1. Inštalácia MariaDB a Galera balíkov
       apt:
         name: [mariadb-server, mariadb-client, galera-4, rsync]
         state: present
         update_cache: yes
 
-    - name: Kopírovanie Galera konfigurácie
+    - name: 2. Kopírovanie Galera konfigurácie (60-galera.cnf)
       template:
         src: galera.cnf.j2
         dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
 
-    - name: Zastavenie MariaDB na všetkých nodoch
+    - name: 3. Zastavenie MariaDB na všetkých nodoch pre čistý štart
       service:
         name: mariadb
         state: stopped
 
-    - name: Uistenie sa, že žiadna MariaDB nebeží (čistenie)
+    - name: 4. Násilné ukončenie visiacich procesov (čistenie)
       command: pkill -u mysql mariadbd
       ignore_errors: yes
       when: inventory_hostname == "node1"
 
-    - name: Štart nového clusteru na node1
+    - name: 5. OPRAVA: Povolenie bootstrapu na node1 (safe_to_bootstrap)
+      lineinfile:
+        path: /var/lib/mysql/grastate.dat
+        regexp: 'safe_to_bootstrap: 0'
+        line: 'safe_to_bootstrap: 1'
+      when: inventory_hostname == "node1"
+      ignore_errors: yes
+
+    - name: 6. Štart nového klastra na node1 (Bootstrap)
       command: galera_new_cluster
       when: inventory_hostname == "node1"
 
-    - name: Počkať na štart node1
+    - name: 7. Krátka pauza na stabilizáciu node1
       pause:
         seconds: 10
       when: inventory_hostname == "node1"
 
-    - name: Pripojenie ostatných nodov (node2, node3)
+    - name: 8. Pripojenie node2 a node3 do klastra
       service:
         name: mariadb
         state: started
