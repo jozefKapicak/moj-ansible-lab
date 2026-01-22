@@ -1,0 +1,193 @@
+# docker-compose.yml  (KLASTER 2: MySQL InnoDB Cluster na 172.17)
+version: "3.9"
+
+services:
+  mysql1:
+    image: mysql:8.0
+    container_name: mysql1
+    hostname: mysql1
+    networks:
+      innodb_net:
+        ipv4_address: 172.17.0.11
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: "%"
+    command:
+      - --server-id=1
+      - --report-host=mysql1
+      - --report-port=3306
+      - --log-bin=binlog
+      - --binlog-format=ROW
+      - --binlog-checksum=NONE
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --master-info-repository=TABLE
+      - --relay-log-info-repository=TABLE
+      - --log-slave-updates=ON
+      - --transaction-write-set-extraction=XXHASH64
+      - --default-authentication-plugin=mysql_native_password
+      - --plugin-load-add=group_replication.so
+      - --plugin-load-add=mysql_clone.so
+      - --loose-group_replication_group_name=3a6f6fd2-7e2a-4b0e-9f2c-3a0c2a8b1a11
+      - --loose-group_replication_start_on_boot=OFF
+      - --loose-group_replication_bootstrap_group=OFF
+      - --loose-group_replication_single_primary_mode=ON
+      - --loose-group_replication_enforce_update_everywhere_checks=OFF
+      - --loose-group_replication_local_address=mysql1:33061
+      - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
+      - --loose-group_replication_ip_allowlist=172.17.0.0/16
+    volumes:
+      - mysql1_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  mysql2:
+    image: mysql:8.0
+    container_name: mysql2
+    hostname: mysql2
+    networks:
+      innodb_net:
+        ipv4_address: 172.17.0.12
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: "%"
+    command:
+      - --server-id=2
+      - --report-host=mysql2
+      - --report-port=3306
+      - --log-bin=binlog
+      - --binlog-format=ROW
+      - --binlog-checksum=NONE
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --master-info-repository=TABLE
+      - --relay-log-info-repository=TABLE
+      - --log-slave-updates=ON
+      - --transaction-write-set-extraction=XXHASH64
+      - --default-authentication-plugin=mysql_native_password
+      - --plugin-load-add=group_replication.so
+      - --plugin-load-add=mysql_clone.so
+      - --loose-group_replication_group_name=3a6f6fd2-7e2a-4b0e-9f2c-3a0c2a8b1a11
+      - --loose-group_replication_start_on_boot=OFF
+      - --loose-group_replication_bootstrap_group=OFF
+      - --loose-group_replication_single_primary_mode=ON
+      - --loose-group_replication_enforce_update_everywhere_checks=OFF
+      - --loose-group_replication_local_address=mysql2:33061
+      - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
+      - --loose-group_replication_ip_allowlist=172.17.0.0/16
+    volumes:
+      - mysql2_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  mysql3:
+    image: mysql:8.0
+    container_name: mysql3
+    hostname: mysql3
+    networks:
+      innodb_net:
+        ipv4_address: 172.17.0.13
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: "%"
+    command:
+      - --server-id=3
+      - --report-host=mysql3
+      - --report-port=3306
+      - --log-bin=binlog
+      - --binlog-format=ROW
+      - --binlog-checksum=NONE
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --master-info-repository=TABLE
+      - --relay-log-info-repository=TABLE
+      - --log-slave-updates=ON
+      - --transaction-write-set-extraction=XXHASH64
+      - --default-authentication-plugin=mysql_native_password
+      - --plugin-load-add=group_replication.so
+      - --plugin-load-add=mysql_clone.so
+      - --loose-group_replication_group_name=3a6f6fd2-7e2a-4b0e-9f2c-3a0c2a8b1a11
+      - --loose-group_replication_start_on_boot=OFF
+      - --loose-group_replication_bootstrap_group=OFF
+      - --loose-group_replication_single_primary_mode=ON
+      - --loose-group_replication_enforce_update_everywhere_checks=OFF
+      - --loose-group_replication_local_address=mysql3:33061
+      - --loose-group_replication_group_seeds=mysql1:33061,mysql2:33061,mysql3:33061
+      - --loose-group_replication_ip_allowlist=172.17.0.0/16
+    volumes:
+      - mysql3_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -proot -h localhost -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  # Inicializácia InnoDB Clusteru: seed je mysql3 (lebo máš dáta na mysql3)
+  mysqlsh-init:
+    image: mysql/mysql-shell:8.0
+    container_name: mysqlsh-init
+    networks:
+      - innodb_net
+    depends_on:
+      mysql1:
+        condition: service_healthy
+      mysql2:
+        condition: service_healthy
+      mysql3:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/bash", "-lc"]
+    command: |
+      set -euo pipefail
+
+      echo "==> Waiting for MySQL instances to accept connections..."
+      for h in mysql1 mysql2 mysql3; do
+        until mysqlsh --no-wizard --sql -uroot -proot -h "$h" -e "SELECT 1" >/dev/null 2>&1; do
+          sleep 1
+        done
+      done
+
+      echo "==> Bootstrapping InnoDB Cluster (seed=mysql3) + ensure DB jozefffff_5..."
+      mysqlsh --no-wizard --js -uroot -proot -h mysql3 --execute "
+        shell.connect('root:root@mysql3:3306');
+
+        var cluster;
+        try {
+          cluster = dba.getCluster('innodbCluster');
+          print('Cluster already exists.');
+        } catch (e) {
+          cluster = dba.createCluster('innodbCluster', { ipAllowlist: '172.17.0.0/16' });
+          print('Cluster created.');
+        }
+
+        // Add members (idempotent-ish: try, ignore if already added)
+        try { cluster.addInstance('root:root@mysql1:3306', { recoveryMethod: 'clone' }); } catch (e) { print('add mysql1: ' + e.message); }
+        try { cluster.addInstance('root:root@mysql2:3306', { recoveryMethod: 'clone' }); } catch (e) { print('add mysql2: ' + e.message); }
+
+        // Create DB on primary/seed -> should replicate via Group Replication
+        session.runSql('CREATE DATABASE IF NOT EXISTS jozefffff_5');
+        print('DB ensured: jozefffff_5');
+      "
+
+      echo "==> DONE."
+
+networks:
+  innodb_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.17.0.0/16
+
+volumes:
+  mysql1_data:
+  mysql2_data:
+  mysql3_data:
