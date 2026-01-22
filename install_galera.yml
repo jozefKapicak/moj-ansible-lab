@@ -3,9 +3,9 @@
   hosts: all
   become: yes
   tasks:
-    - name: "1. Inštalácia MariaDB, Galera a Python knižníc"
+    - name: "1. Inštalácia MariaDB a Galera balíkov"
       apt:
-        name: [mariadb-server, mariadb-client, galera-4, rsync, python3-pymysql]
+        name: [mariadb-server, mariadb-client, galera-4, rsync]
         state: present
         update_cache: yes
 
@@ -14,17 +14,17 @@
         src: "galera.cnf.j2"
         dest: "/etc/mysql/mariadb.conf.d/60-galera.cnf"
 
-    - name: "3. Zastavenie MariaDB na všetkých nodoch pre čistý štart"
+    - name: "3. Zastavenie MariaDB na všetkých nodoch"
       service:
         name: mariadb
         state: stopped
 
-    - name: "4. Násilné ukončenie visiacich procesov (čistenie)"
+    - name: "4. Násilné ukončenie visiacich procesov"
       command: pkill -u mysql mariadbd
       ignore_errors: yes
       when: inventory_hostname == "node1"
 
-    - name: "5. OPRAVA: Povolenie bootstrapu na node1 (safe_to_bootstrap)"
+    - name: "5. Povolenie bootstrapu na node1"
       lineinfile:
         path: /var/lib/mysql/grastate.dat
         regexp: 'safe_to_bootstrap: 0'
@@ -32,11 +32,11 @@
       when: inventory_hostname == "node1"
       ignore_errors: yes
 
-    - name: "6. Štart nového klastra na node1 (Bootstrap)"
+    - name: "6. Štart nového klastra na node1"
       command: galera_new_cluster
       when: inventory_hostname == "node1"
 
-    - name: "7. Krátka pauza na stabilizáciu node1"
+    - name: "7. Pauza na stabilizáciu"
       pause:
         seconds: 10
       when: inventory_hostname == "node1"
@@ -47,11 +47,8 @@
         state: started
       when: inventory_hostname != "node1"
 
-    - name: "9. Vytvorenie databázy z AWX Survey"
-      community.mysql.mysql_db:  # <--- Tu je zmena
-        name: "{{ db_name_from_survey }}"
-        state: present
-        login_unix_socket: /run/mysqld/mysqld.sock
+    - name: "9. Vytvorenie databázy (priamy SQL príkaz)"
+      shell: "mariadb -u root -e 'CREATE DATABASE IF NOT EXISTS {{ db_name_from_survey }};'"
       when: 
         - inventory_hostname == "node1"
         - db_name_from_survey is defined and db_name_from_survey | length > 0
