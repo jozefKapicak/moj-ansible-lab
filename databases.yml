@@ -1,0 +1,8 @@
+---
+db_list:
+  - name: "Testik1"
+    state: "present"
+  - name: "stara_databaza"
+    state: "absent"
+  - name: "nova_produkcia"
+    state: "present"
