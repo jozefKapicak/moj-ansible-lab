@@ -1,0 +1,10 @@
+---
+- name: Môj prvý Playbook z GitHubu
+  hosts: all
+  become: yes  # Toto znamená "použi sudo/root"
+  tasks:
+    - name: Nainštaluj Midnight Commander (mc)
+      apt:
+        name: mc
+        state: present
+        update_cache: yes
