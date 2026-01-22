@@ -1,28 +1,30 @@
 ---
-- name: "GitOps Správa SQL Klastrov"
+- name: "GitOps SQL Master Playbook"
   hosts: all
   become: yes
   vars_files:
-    - databases.yml  # Načíta zoznam databáz zo súboru
+    - databases.yml
 
   tasks:
-    # --- LOGIKA PRE MARIADB GALERA (IP 172.18.0.x) ---
-    - name: "Vytvorenie DB v MariaDB klastri"
-      mysql_db:
-        name: "{{ item }}"
-        state: present
+    # --- 1. SPRACOVANIE db_list (present/absent) ---
+    - name: "Správa databáz podľa stavu (db_list)"
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: "{{ item.state }}"
         login_user: root
         login_password: root
-      loop: "{{ databases_to_create }}"
-      when: "'mariadb_galera' in group_names"
-      run_once: true
+        login_host: "localhost"
+      loop: "{{ db_list }}"
+      # Pri Galere stačí na jednom node, pri MySQL (bez klastra) na všetkých
+      run_once: "{{ 'mariadb_galera' in group_names }}"
 
-    # --- LOGIKA PRE MYSQL INNODB (IP 172.17.0.x) ---
-    - name: "Vytvorenie DB v MySQL klastri"
-      mysql_db:
+    # --- 2. SPRACOVANIE databases_to_create (len present) ---
+    - name: "Hromadné vytvorenie nových databáz"
+      community.mysql.mysql_db:
         name: "{{ item }}"
         state: present
         login_user: root
         login_password: root
+        login_host: "localhost"
       loop: "{{ databases_to_create }}"
-      when: "'mysql_innodb' in group_names"
+      run_once: "{{ 'mariadb_galera' in group_names }}"
