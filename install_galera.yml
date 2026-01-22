@@ -48,7 +48,7 @@
       when: inventory_hostname != "node1"
 
     - name: "9. Vytvorenie databázy (priamy SQL príkaz)"
-      shell: "mariadb -u root -e 'CREATE DATABASE IF NOT EXISTS {{ db_name_from_survey }};'"
-      when: 
-        - inventory_hostname == "node1"
-        - db_name_from_survey is defined and db_name_from_survey | length > 0
+      shell: |
+        mariadb -u root -e "CREATE DATABASE IF NOT EXISTS {{ item }};"
+      loop: "{{ [db_name_from_survey] | select('defined') | select('ne', '') | list }}"
+      when: inventory_hostname == "node1"
