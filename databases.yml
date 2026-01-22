@@ -1,4 +1,5 @@
 ---
+# Zoznam pre pokročilú správu (vytváranie aj mazanie)
 db_list:
   - name: "Testik1"
     state: "present"
@@ -7,7 +8,7 @@ db_list:
   - name: "nova_produkcia"
     state: "present"
 
-# Zoznam databáz, ktoré sa majú vytvoriť
+# Jednoduchý zoznam pre rýchle pridávanie
 databases_to_create:
   - "jozefffff_gitops_1"
   - "sortia_produkcia"
